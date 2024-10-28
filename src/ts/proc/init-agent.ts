@@ -1,6 +1,6 @@
-import { Agent } from '../agent';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
+import { Agent } from '../agent';
 
 /**
  * Initialize and start an agent process

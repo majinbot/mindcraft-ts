@@ -74,3 +74,28 @@ export function getNearbyPlayerNames(bot: Bot): string[] {
             )
     )];
 }
+
+/**
+ * Checks if an entity is a huntable animal
+ * @param {Entity | null} mob - Entity to check
+ * @returns {boolean} True if entity is a huntable animal
+ */
+export function isHuntable(mob: Entity | null): boolean {
+    if (!mob?.name) return false;
+    const animals = ['chicken', 'cow', 'llama', 'mooshroom', 'pig', 'rabbit', 'sheep'];
+    return animals.includes(mob.name.toLowerCase()) && !mob.metadata[16]; // metadata 16 is not baby
+}
+
+/**
+ * Checks if an entity is hostile
+ * @param {Entity | null} mob - Entity to check
+ * @returns {boolean} True if entity is hostile
+ */
+export function isHostile(mob: Entity | null): boolean {
+    if (!mob?.name) return false;
+    return (
+        (mob.type === 'mob' || mob.type === 'hostile') &&
+        mob.name !== 'iron_golem' &&
+        mob.name !== 'snow_golem'
+    );
+}

@@ -2,14 +2,8 @@
  * Common type definitions for Minecraft-related functionality
  * @module mc/types
  */
-import type { Bot } from 'mineflayer';
-import type { Entity } from 'prismarine-entity';
-import type { Item } from 'prismarine-item';
-import type { Recipe } from 'prismarine-recipe';
 import type { IndexedData } from 'minecraft-data';
 import type PrismarineItem from 'prismarine-item';
-
-export type { Bot, Entity, Item, Recipe, IndexedData };
 
 export type ItemName = string;
 export type BlockName = string;

@@ -1,6 +1,6 @@
 import { cosineSimilarity } from './math';
 import { stringifyTurns } from './text';
-import { Turn, EmbeddingModel } from '../types';
+import { Turn, EmbeddingModel } from '../types/model';
 
 /**
  * Manages example conversations and their embeddings for context-aware responses

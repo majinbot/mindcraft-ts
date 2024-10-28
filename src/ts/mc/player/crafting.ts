@@ -5,7 +5,7 @@
 import type { McDataContext, ItemName, CraftingRecipe, LimitingResourceResult } from '../types';
 import { getItemName } from './items';
 import type { Recipe as PrismarineRecipe } from 'prismarine-recipe';
-import type { Recipe, Shape, ShapeRow, Ingredients, RecipeItem } from 'minecraft-data';
+import type { RecipeItem } from 'minecraft-data';
 
 type ProcessedRecipe = CraftingRecipe;
 

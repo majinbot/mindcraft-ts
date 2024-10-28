@@ -3,13 +3,26 @@
  * @module mc/player/bot
  */
 import { createBot } from 'mineflayer';
-import { pathfinder } from 'mineflayer-pathfinder';
+import { goals, pathfinder } from 'mineflayer-pathfinder';
 import { plugin as pvp } from 'mineflayer-pvp';
 import { plugin as collectblock } from 'mineflayer-collectblock';
 import { loader as autoEat } from 'mineflayer-auto-eat';
 import armorManager from 'mineflayer-armor-manager';
-import type { Bot } from '../types';
-import {Entity} from "prismarine-entity";
+import type { Bot as MineflayerBot } from 'mineflayer';
+
+
+/**
+ * Extended Bot interface with additional properties
+ */
+export interface ExtendedBot extends MineflayerBot {
+    output: string;
+}
+
+// Type assertion function to treat a MineflayerBot as ExtendedBot
+export function asExtendedBot(bot: MineflayerBot): ExtendedBot {
+    (bot as ExtendedBot).output = '';
+    return bot as ExtendedBot;
+}
 
 /**
  * Creates and initializes a new Minecraft bot with standard plugins
@@ -33,14 +46,17 @@ export function initBot({
     port: number;
     version: string;
     auth: 'offline' | 'microsoft';
-}): Bot {
-    const bot = createBot({
+}): ExtendedBot {
+    const _bot = createBot({
         username,
         host,
         port,
         version,
         auth
     });
+
+    // Convert to extended bot with output property
+    const bot = asExtendedBot(_bot);
 
     // Load standard plugins
     bot.loadPlugin(pathfinder);
@@ -53,26 +69,48 @@ export function initBot({
 }
 
 /**
- * Checks if an entity is a huntable animal
- * @param {Entity | null} mob - Entity to check
- * @returns {boolean} True if entity is a huntable animal
+ * Makes the bot sleep in the nearest bed
  */
-export function isHuntable(mob: Entity | null): boolean {
-    if (!mob?.name) return false;
-    const animals = ['chicken', 'cow', 'llama', 'mooshroom', 'pig', 'rabbit', 'sheep'];
-    return animals.includes(mob.name.toLowerCase()) && !mob.metadata[16]; // metadata 16 is not baby
+export async function sleep(bot: ExtendedBot): Promise<boolean> {
+    const bed = bot.findBlock({
+        matching: block => block.name.includes('bed'),
+        maxDistance: 16
+    });
+
+    if (!bed) {
+        log(bot, 'Could not find a bed to sleep in');
+        return false;
+    }
+
+    await bot.pathfinder.goto(new goals.GoalBlock(
+        bed.position.x,
+        bed.position.y,
+        bed.position.z
+    ));
+
+    try {
+        await bot.sleep(bed);
+        log(bot, 'You are in bed');
+
+        // Wait until no longer sleeping
+        while (bot.isSleeping) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        log(bot, 'You have woken up');
+        return true;
+    } catch (err) {
+        log(bot, `Failed to sleep: ${(err as Error).message}`);
+        return false;
+    }
 }
 
 /**
- * Checks if an entity is hostile
- * @param {Entity | null} mob - Entity to check
- * @returns {boolean} True if entity is hostile
+ * Log a message to the bot's output and optionally to chat
  */
-export function isHostile(mob: Entity | null): boolean {
-    if (!mob?.name) return false;
-    return (
-        (mob.type === 'mob' || mob.type === 'hostile') &&
-        mob.name !== 'iron_golem' &&
-        mob.name !== 'snow_golem'
-    );
+export function log(bot: ExtendedBot, message: string, chat = false): void {
+    bot.output += message + '\n';
+    if (chat) {
+        bot.chat(message);
+    }
 }

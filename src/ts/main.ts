@@ -1,4 +1,3 @@
-// src/main.ts
 import { AgentProcess } from './proc/agent-process';
 import settings from './settings';
 import yargs from 'yargs';
