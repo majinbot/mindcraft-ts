@@ -25,7 +25,7 @@ const mcdata = minecraftData(MC_VERSION);
 /**
  * Extends MinecraftData.Entity with runtime properties
  */
-interface RuntimeEntity extends MinecraftData.Entity {
+export interface RuntimeEntity extends MinecraftData.Entity {
     metadata?: {
         [key: number]: unknown;
     };
