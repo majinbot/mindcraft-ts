@@ -2,6 +2,15 @@ import {
     ExtendedBot,
 } from "../../../types/mc";
 
+export * from "./blocks";
+export * from "./combat";
+export * from "./crafting";
+export * from "./farming";
+export * from "./items";
+export * from "./navigation";
+export * from "./smelting";
+export * from "./torch";
+
 /**
  * Logs a message to the bot's output and optionally sends it to game chat
  *

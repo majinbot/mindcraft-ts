@@ -1,6 +1,4 @@
-import * as skills from '../../../src/agent/library/skills.js';
-import * as world from '../../../src/agent/library/world.js';
-import Vec3 from 'vec3';
+import * as skills from '../src/agent/library/skills.js';
 
 const log = skills.log;
 

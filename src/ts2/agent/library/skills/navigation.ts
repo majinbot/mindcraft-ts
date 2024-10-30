@@ -10,7 +10,7 @@ import {Block} from "prismarine-block";
 /**
  * Navigation configuration options
  */
-interface NavigationOptions {
+export interface NavigationOptions {
     /** Minimum distance to maintain from target (default: 2) */
     minDistance?: number;
     /** Maximum search range for targets (default: 64) */
@@ -22,7 +22,7 @@ interface NavigationOptions {
 /**
  * Options for following behavior
  */
-interface FollowOptions {
+export interface FollowOptions {
     /** Distance to maintain from target (default: 4) */
     distance?: number;
     /** How often to check position in ms (default: 500) */
@@ -34,7 +34,7 @@ interface FollowOptions {
 /**
  * Options for stay behavior
  */
-interface StayOptions {
+export interface StayOptions {
     /** Duration in seconds to stay (-1 for indefinite, default: 30) */
     duration?: number;
     /** How often to check state in ms (default: 500) */
@@ -46,7 +46,7 @@ interface StayOptions {
 /**
  * Configuration options for bed navigation and sleeping
  */
-interface BedOptions {
+export interface BedOptions {
     /** Maximum search range for beds (default: 32) */
     searchRange?: number;
     /** Maximum time to attempt sleeping in ms (default: 30000) */
@@ -60,7 +60,7 @@ interface BedOptions {
 /**
  * List of all movement-related modes that can be disabled
  */
-const MOVEMENT_MODES = [
+export const MOVEMENT_MODES = [
     'self_preservation',
     'unstuck',
     'cowardice',
