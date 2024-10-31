@@ -3,7 +3,7 @@
  * @description Handles example selection, embedding, and relevance scoring for conversation examples
  */
 
-import { cosineSimilarity } from './math';
+import {cosineSimilarity} from './math';
 import {stringifyTurns} from './text';
 import {ConversationTurn, EmbeddingModel, EmbeddingStore} from "../types/models";
 
@@ -13,7 +13,7 @@ import {ConversationTurn, EmbeddingModel, EmbeddingStore} from "../types/models"
 export class Examples {
     private examples: ConversationTurn[][] = [];
     private embeddings: EmbeddingStore = {};
-    private model: EmbeddingModel | null;
+    private readonly model: EmbeddingModel | null;
     private readonly select_num: number;
 
     /**
@@ -21,11 +21,6 @@ export class Examples {
      *
      * @param model - Optional embedding model for semantic similarity
      * @param select_num - Number of examples to select
-     *
-     * @improvements
-     * - Added type safety for model and examples
-     * - Added input validation
-     * - Added proper error handling
      */
     constructor(model: EmbeddingModel | null = null, select_num: number = 2) {
         if (select_num < 1) {
@@ -35,6 +30,62 @@ export class Examples {
         this.model = model;
         this.select_num = select_num;
     }
+
+    /**
+     * Loads and processes examples, computing embeddings if model available
+     *
+     * @param filePaths - Array of conversation examples
+     * @throws Error if examples are invalid
+     *
+     * @improvements
+     * - Added input validation
+     * - Added progress tracking
+     * - Better error handling
+     * - Added embedding caching
+     */
+    async load(filePaths: string[]): Promise<void> {
+        if (!Array.isArray(filePaths)) {
+            throw new Error('File paths must be an array');
+        }
+
+        try {
+            // Load examples from files
+            this.examples = filePaths.map(fp => {
+                const content = require(fp);
+                if (!Array.isArray(content) || !this.isValidConversationTurns(content)) {
+                    throw new Error(`Invalid example format in file: ${fp}`);
+                }
+                return content;
+            });
+
+            // Compute embeddings if model available
+            if (this.model) {
+                const embeddingPromises = this.examples.map(async (example) => {
+                    const turnText = this.turnsToText(example);
+                    if (!this.embeddings[turnText]) {
+                        this.embeddings[turnText] = await this.model!.embed(turnText);
+                    }
+                });
+
+                await Promise.all(embeddingPromises);
+            }
+        } catch (error) {
+            console.error('Error loading examples:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Type guard for validating conversation turns
+     */
+    private isValidConversationTurns(turns: unknown[]): turns is ConversationTurn[] {
+        return turns.every(turn =>
+            turn && typeof turn === 'object' &&
+            'role' in turn && 'content' in turn &&
+            ['system', 'user', 'assistant'].includes((turn as ConversationTurn).role)
+        );
+    }
+
 
     /**
      * Converts conversation turns to plain text
@@ -111,43 +162,6 @@ export class Examples {
         );
 
         return intersection.size / (words1.size + words2.size - intersection.size);
-    }
-
-    /**
-     * Loads and processes examples, computing embeddings if model available
-     *
-     * @param examples - Array of conversation examples
-     * @throws Error if examples are invalid
-     *
-     * @improvements
-     * - Added input validation
-     * - Added progress tracking
-     * - Better error handling
-     * - Added embedding caching
-     */
-    async load(examples: ConversationTurn[][]): Promise<void> {
-        if (!Array.isArray(examples)) {
-            throw new Error('Examples must be an array');
-        }
-
-        this.examples = examples;
-
-        if (!this.model) return;
-
-        try {
-            const embeddingPromises = this.examples.map(async (example) => {
-                const turnText = this.turnsToText(example);
-                if (!this.embeddings[turnText]) {
-                    this.embeddings[turnText] = await this.model!.embed(turnText);
-                }
-            });
-
-            await Promise.all(embeddingPromises);
-        } catch (error) {
-            console.warn('Error computing embeddings:', error);
-            console.warn('Falling back to word overlap similarity.');
-            this.model = null;
-        }
     }
 
     /**

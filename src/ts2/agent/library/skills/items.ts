@@ -1,9 +1,9 @@
-import {ExtendedBot} from "../../../types/mc";
 import {log} from "./index";
 import {goToPlayer, goToPosition} from "./navigation";
 import {getNearestBlock} from "../world";
 import {Item} from "prismarine-item";
 import {Block} from "prismarine-block";
+import {Bot} from "mineflayer";
 
 /**
  * Configuration options for item operations
@@ -88,7 +88,7 @@ export class ItemError extends Error {
  * ```
  */
 export async function equip(
-    bot: ExtendedBot,
+    bot: Bot,
     itemName: string
 ): Promise<boolean> {
     // Find item in inventory
@@ -136,7 +136,7 @@ export async function equip(
  * ```
  */
 export async function discard(
-    bot: ExtendedBot,
+    bot: Bot,
     itemName: string,
     options: ItemOptions = {}
 ): Promise<boolean> {
@@ -203,7 +203,7 @@ export async function discard(
  * ```
  */
 export async function putInChest(
-    bot: ExtendedBot,
+    bot: Bot,
     itemName: string,
     countOrOptions?: number | ItemOptions
 ): Promise<boolean> {
@@ -289,7 +289,7 @@ export async function putInChest(
  * ```
  */
 export async function takeFromChest(
-    bot: ExtendedBot,
+    bot: Bot,
     itemName: string,
     options: ItemOptions = {}
 ): Promise<boolean> {
@@ -366,7 +366,7 @@ export async function takeFromChest(
  * ```
  */
 export async function viewChest(
-    bot: ExtendedBot,
+    bot: Bot,
     options: ItemOptions = {}
 ): Promise<boolean> {
     const { range = 32 } = options;
@@ -436,7 +436,7 @@ export async function viewChest(
  * ```
  */
 export async function eat(
-    bot: ExtendedBot,
+    bot: Bot,
     foodName: string = ""
 ): Promise<boolean> {
     try {
@@ -480,7 +480,7 @@ export async function eat(
  * @throws {ItemError} If player not found or transfer fails
  */
 export async function giveToPlayer(
-    bot: ExtendedBot,
+    bot: Bot,
     itemName: string,
     username: string,
     options: ItemOptions = {}
@@ -542,7 +542,7 @@ export async function giveToPlayer(
  * ```
  */
 export function findItems(
-    bot: ExtendedBot,
+    bot: Bot,
     predicate: (item: Item) => boolean
 ): Item[] {
     return bot.inventory.items().filter(predicate);
@@ -556,7 +556,7 @@ export function findItems(
  * @returns Total count of matching items
  */
 export function getItemCount(
-    bot: ExtendedBot,
+    bot: Bot,
     itemName: string
 ): number {
     return bot.inventory.items()
@@ -572,7 +572,7 @@ export function getItemCount(
  * @returns True if inventory has required space
  */
 export function hasInventorySpace(
-    bot: ExtendedBot,
+    bot: Bot,
     requiredSlots: number = 1
 ): boolean {
     const emptySlots = bot.inventory.slots.filter(slot => !slot).length;
@@ -587,7 +587,7 @@ export function hasInventorySpace(
  * @returns Nearest container block or null if none found
  */
 export function findNearestContainer(
-    bot: ExtendedBot,
+    bot: Bot,
     options: ItemOptions = {}
 ): Block | null {
     const { range = 32 } = options;
@@ -617,7 +617,7 @@ export function findNearestContainer(
  * Consolidates partial stacks and groups similar items together
  * Uses quick bar slots for temporary storage if needed
  */
-export async function sortInventory(bot: ExtendedBot): Promise<void> {
+export async function sortInventory(bot: Bot): Promise<void> {
     try {
         const items = bot.inventory.items();
 
@@ -676,7 +676,7 @@ export async function sortInventory(bot: ExtendedBot): Promise<void> {
  * @internal
  */
 export async function storeFurnaceContents(
-    bot: ExtendedBot,
+    bot: Bot,
     contents: {
         output: Item | null;
         input: Item | null;

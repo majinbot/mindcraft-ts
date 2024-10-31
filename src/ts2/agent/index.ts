@@ -11,15 +11,24 @@ import {
     truncCommandMessage,
     isAction
 } from './commands';
-// import { NPCController } from './npc/controller';
 import { MemoryBank } from './memory_bank';
 import { SelfPrompter } from './self_prompter';
 import { handleTranslation, handleEnglishTranslation } from '../utils/translation';
 import { addViewer } from './viewer';
-import { MindcraftConfig } from '../types/config';
+import {AgentSettings} from "../types/agent";
+import {IEatUtilOpts} from "mineflayer-auto-eat/dist/new";
+import {SaveData} from "./types";
 
-interface SaveData {
-    self_prompt?: string;
+// Add missing events to BotEvents
+declare module 'mineflayer' {
+    interface BotEvents {
+        finished_executing: () => void;
+        sunrise: () => void;
+        noon: () => void;
+        sunset: () => void;
+        midnight: () => void;
+        idle: () => void;
+    }
 }
 
 export class Agent {
@@ -27,33 +36,31 @@ export class Agent {
     public prompter!: Prompter;
     public history!: History;
     public coder!: Coder;
-    //public npc!: NPCController;
     public memory_bank!: MemoryBank;
     public self_prompter!: SelfPrompter;
     public name!: string;
-    public settings!: MindcraftConfig;
-    private shut_up = false;
+    public settings!: AgentSettings;
+    private shut_up: boolean = false;
 
-    private static readonly IGNORE_MESSAGES = [
+    private static readonly IGNORE_MESSAGES: readonly string[] = [
         "Set own game mode to",
         "Set the time to",
         "Set the difficulty to",
         "Teleported ",
         "Set the weather to",
         "Gamerule "
-    ];
+    ] as const;
 
     async start(
         profile_fp: string,
-        loadMem = false,
+        loadMem: boolean = false,
         initMessage: string | null = null,
-        countId = 0
+        countId: number = 0
     ): Promise<void> {
         this.prompter = new Prompter(this, profile_fp);
         this.name = this.prompter.getName();
         this.history = new History(this);
         this.coder = new Coder(this);
-        //this.npc = new NPCController(this);
         this.memory_bank = new MemoryBank();
         this.self_prompter = new SelfPrompter(this);
 
@@ -84,17 +91,7 @@ export class Agent {
                 await this.handleMessage(username, translation);
             });
 
-            this.bot.autoEat.options = {
-                priority: 'foodPoints',
-                startAt: 14,
-                bannedFood: [
-                    "rotten_flesh",
-                    "spider_eye",
-                    "poisonous_potato",
-                    "pufferfish",
-                    "chicken"
-                ]
-            };
+            this.initAutoEat();
 
             if (saveData?.self_prompt) {
                 const prompt = saveData.self_prompt;
@@ -112,7 +109,27 @@ export class Agent {
         });
     }
 
-    async cleanChat(message: string, translateUpTo = -1): Promise<void> {
+    private initAutoEat(): void {
+        const autoEatOpts: Partial<IEatUtilOpts> = {
+            priority: 'foodPoints',
+            minHunger: 14,
+            bannedFood: [
+                "rotten_flesh",
+                "spider_eye",
+                "poisonous_potato",
+                "pufferfish",
+                "chicken"
+            ]
+        };
+
+        // Apply options to the autoEat instance
+        this.bot.autoEat.setOpts(autoEatOpts);
+
+        // Enable auto eating
+        this.bot.autoEat.enableAuto();
+    }
+
+    async cleanChat(message: string, translateUpTo: number = -1): Promise<void> {
         let toTranslate = translateUpTo !== -1 ?
             message.substring(0, translateUpTo) :
             message;
@@ -129,7 +146,7 @@ export class Agent {
     shutUp(): void {
         this.shut_up = true;
         if (this.self_prompter.on) {
-            this.self_prompter.stop(false).then();
+            void this.self_prompter.stop(false);
         }
     }
 
@@ -142,8 +159,6 @@ export class Agent {
         maxResponses = maxResponses ??
             (this.settings.max_commands === -1 ?
                 Infinity : this.settings.max_commands);
-
-        if (maxResponses === -1) maxResponses = Infinity;
 
         const selfPrompt = source === 'system' || source === this.name;
 
@@ -259,7 +274,6 @@ export class Agent {
         this.initTimeEvents();
         this.initHealthTracking();
         this.initErrorHandling();
-        // this.initNPCController();
         this.startUpdateLoop();
         this.bot.emit('idle');
     }
@@ -289,26 +303,26 @@ export class Agent {
     }
 
     private initErrorHandling(): void {
-        this.bot.on('error', (err) => {
+        this.bot.on('error', (err: Error) => {
             console.error('Error event!', err);
         });
 
-        this.bot.on('end', (reason) => {
+        this.bot.on('end', (reason: string) => {
             console.warn('Bot disconnected! Killing agent process.', reason);
             this.cleanKill('Bot disconnected! Killing agent process.');
         });
 
         this.bot.on('death', () => {
             this.coder.cancelResume();
-            this.coder.stop().then();
+            void this.coder.stop();
         });
 
-        this.bot.on('kicked', (reason) => {
+        this.bot.on('kicked', (reason: string) => {
             console.warn('Bot kicked!', reason);
             this.cleanKill('Bot kicked! Killing agent process.');
         });
 
-        this.bot.on('messagestr', async (message: string, _, jsonMsg: any) => {
+        this.bot.on('messagestr', async (message: string, _: unknown, jsonMsg: any) => {
             if (jsonMsg.translate?.startsWith('death') &&
                 message.startsWith(this.name)) {
                 console.log('Agent died:', message);
@@ -323,13 +337,9 @@ export class Agent {
             this.bot.clearControlStates();
             this.bot.pathfinder.stop();
             this.bot.modes.unPauseAll();
-            this.coder.executeResume().then();
+            void this.coder.executeResume();
         });
     }
-
-    // private initNPCController(): void {
-    //    this.npc.init();
-    //}
 
     private startUpdateLoop(): void {
         const INTERVAL = 300;
@@ -356,11 +366,18 @@ export class Agent {
     }
 
     isIdle(): boolean {
-        return !this.coder.executing && !this.coder.generating;
+        return !this.coder.isExecuting && !this.coder.isGenerating;
     }
 
-    cleanKill(msg = 'Killing agent process...'): void {
-        this.history.add('system', msg).then();
+    /**
+     * Check if the agent is in quiet mode
+     */
+    public isQuiet(): boolean {
+        return this.shut_up;
+    }
+
+    cleanKill(msg: string = 'Killing agent process...'): void {
+        void this.history.add('system', msg);
         this.bot.chat('Goodbye world.');
         this.history.save();
         process.exit(1);

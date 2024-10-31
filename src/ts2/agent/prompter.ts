@@ -1,49 +1,26 @@
 import { readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { Examples } from '../utils/examples';
-import { getCommandDocs } from './commands';
+import {getCommand, getCommandDocs} from './commands';
 import { getSkillDocs } from './library';
 import { stringifyTurns } from '../utils/text';
-import { getCommand } from './commands';
 import { Agent } from './index';
-import { HistoryTurn } from './history';
-import {GroqCloud} from "../models/groq";
-import {Claude} from "../models/claude";
-import {HuggingFace} from "../models/huggingface";
+import { GroqCloud } from "../models/groq";
+import { Claude } from "../models/claude";
+import { HuggingFace } from "../models/huggingface";
+import {HistoryTurn, Profile} from "./types";
+import {ChatModel, EmbeddingModel, ModelConfig} from "../types/models";
 
-interface ChatModel {
-    sendRequest(messages: HistoryTurn[], prompt: string): Promise<string>;
-}
-
-interface EmbeddingModel extends ChatModel {
-    getEmbedding?(text: string): Promise<number[]>;
-}
-
-interface ModelConfig {
-    model: string;
-    api?: string;
-    url?: string;
-}
-
-interface Profile {
-    name: string;
-    model: ModelConfig | string;
-    embedding?: ModelConfig | string;
-    cooldown?: number;
-    max_tokens?: number;
-    modes?: Record<string, boolean>;
-    conversation_examples: string[];
-    coding_examples: string[];
-    conversing: string;
-    coding: string;
-    saving_memory: string;
-    goal_setting: string;
-}
-
+/**
+ * Structure for NPC goals
+ */
 interface NPCGoal {
     name: string;
     quantity: number;
 }
 
+/**
+ * Handles prompt generation and model interactions for the agent
+ */
 export class Prompter {
     private readonly agent: Agent;
     private readonly profile: Profile;
@@ -52,7 +29,7 @@ export class Prompter {
     private readonly chatModel: ChatModel;
     private readonly embeddingModel: EmbeddingModel | null;
     private readonly cooldown: number;
-    private lastPromptTime = 0;
+    private lastPromptTime: number = 0;
 
     constructor(agent: Agent, fp: string) {
         this.agent = agent;
@@ -63,7 +40,10 @@ export class Prompter {
         this.chatModel = this.createModel(chatConfig);
 
         const embeddingConfig = this.initializeEmbeddingConfig(chatConfig);
-        this.embeddingModel = embeddingConfig ? this.createModel(embeddingConfig) : null;
+        const embeddingChatModel = embeddingConfig ?
+            this.createModel(embeddingConfig) :
+            null;
+        this.embeddingModel = this.asEmbeddingModel(embeddingChatModel);
 
         this.cooldown = this.profile.cooldown || 0;
 
@@ -74,6 +54,23 @@ export class Prompter {
         );
     }
 
+    /**
+     * Converts a ChatModel to an EmbeddingModel if it supports embeddings
+     */
+    private asEmbeddingModel(model: ChatModel | null): EmbeddingModel | null {
+        // Early return if model or getEmbedding is not available
+        const getEmbedding = model?.getEmbedding;
+        if (!getEmbedding) return null;
+
+        // Create adapter with the verified embedding function
+        return {
+            embed: getEmbedding.bind(model)
+        };
+    }
+
+    /**
+     * Initializes the chat model configuration
+     */
     private initializeChatConfig(): ModelConfig {
         let chat = this.profile.model;
         if (typeof chat === 'string') {
@@ -83,6 +80,9 @@ export class Prompter {
         return chat as ModelConfig;
     }
 
+    /**
+     * Initializes the embedding model configuration
+     */
     private initializeEmbeddingConfig(chatConfig: ModelConfig): ModelConfig | null {
         let embedding = this.profile.embedding;
         if (embedding === undefined) {
@@ -97,6 +97,9 @@ export class Prompter {
         return embedding as ModelConfig;
     }
 
+    /**
+     * Detects which API to use based on model name
+     */
     private detectAPI(model: string): string {
         if (model.includes('gemini')) return 'google';
         if (model.includes('gpt') || model.includes('o1')) return 'openai';
@@ -108,13 +111,12 @@ export class Prompter {
         return 'ollama';
     }
 
+    /**
+     * Creates a model instance based on configuration
+     */
     private createModel(config: ModelConfig): ChatModel {
-        const models = {
-            //google: () => new Gemini(config.model, config.url),
-            //openai: () => new GPT(config.model, config.url),
+        const models: Record<string, () => ChatModel> = {
             anthropic: () => new Claude(config.model, config.url),
-            //replicate: () => new ReplicateAPI(config.model, config.url),
-            //ollama: () => new Local(config.model, config.url),
             groq: () => new GroqCloud(
                 config.model.replace(/^groq(cloud)?\//, ''),
                 config.url,
@@ -128,23 +130,42 @@ export class Prompter {
         return modelCreator();
     }
 
+    /**
+     * Gets the agent's name from the profile
+     */
     getName(): string {
         return this.profile.name;
     }
 
+    /**
+     * Gets initial mode settings from the profile
+     */
     getInitModes(): Record<string, boolean> | undefined {
         return this.profile.modes;
     }
 
+    /**
+     * Initializes conversation and coding examples
+     */
     async initExamples(): Promise<void> {
         this.convoExamples = new Examples(this.embeddingModel);
         this.codingExamples = new Examples(this.embeddingModel);
-        await Promise.all([
-            this.convoExamples.load(this.profile.conversation_examples),
-            this.codingExamples.load(this.profile.coding_examples)
-        ]);
+
+        try {
+            await Promise.all([
+                this.convoExamples.load(this.profile.conversation_examples),
+                this.codingExamples.load(this.profile.coding_examples)
+            ]);
+        } catch (err) {
+            console.error('Failed to load examples:', err);
+            this.convoExamples = new Examples(null);
+            this.codingExamples = new Examples(null);
+        }
     }
 
+    /**
+     * Replaces placeholder strings in prompts with actual content
+     */
     private async replaceStrings(
         prompt: string,
         messages: HistoryTurn[] | null,
@@ -165,7 +186,6 @@ export class Prompter {
             [/\$SELF_PROMPT/g, () => this.agent.self_prompter.on ?
                 `YOUR CURRENT ASSIGNED GOAL: "${this.agent.self_prompter.prompt}"\n` : ''],
             [/\$LAST_GOALS/g, () => this.formatLastGoals(lastGoals)],
-            [/\$BLUEPRINTS/g, () => this.formatBlueprints()]
         ];
 
         let result = prompt;
@@ -175,14 +195,12 @@ export class Prompter {
             }
         }
 
-        const remaining = result.match(/\$[A-Z_]+/g);
-        if (remaining) {
-            console.warn('Unknown prompt placeholders:', remaining.join(', '));
-        }
-
         return result;
     }
 
+    /**
+     * Formats the history of completed goals
+     */
     private formatLastGoals(lastGoals: Record<string, boolean> | null): string {
         if (!lastGoals) return '';
         return Object.entries(lastGoals)
@@ -191,12 +209,9 @@ export class Prompter {
             .join('\n');
     }
 
-    private formatBlueprints(): string {
-        //if (!this.agent.npc.constructions) return '';
-        //return Object.keys(this.agent.npc.constructions).join(', ');
-        return "TBD"
-    }
-
+    /**
+     * Enforces cooldown between prompt requests
+     */
     private async checkCooldown(): Promise<void> {
         const elapsed = Date.now() - this.lastPromptTime;
         if (elapsed < this.cooldown && this.cooldown > 0) {
@@ -205,6 +220,9 @@ export class Prompter {
         this.lastPromptTime = Date.now();
     }
 
+    /**
+     * Sends a conversation prompt to the model
+     */
     async promptConvo(messages: HistoryTurn[]): Promise<string> {
         await this.checkCooldown();
         const prompt = await this.replaceStrings(
@@ -215,6 +233,9 @@ export class Prompter {
         return await this.chatModel.sendRequest(messages, prompt);
     }
 
+    /**
+     * Sends a coding prompt to the model
+     */
     async promptCoding(messages: HistoryTurn[]): Promise<string> {
         await this.checkCooldown();
         const prompt = await this.replaceStrings(
@@ -225,6 +246,9 @@ export class Prompter {
         return await this.chatModel.sendRequest(messages, prompt);
     }
 
+    /**
+     * Sends a memory saving prompt to the model
+     */
     async promptMemSaving(toSummarize: HistoryTurn[]): Promise<string> {
         await this.checkCooldown();
         const prompt = await this.replaceStrings(
@@ -236,6 +260,9 @@ export class Prompter {
         return await this.chatModel.sendRequest([], prompt);
     }
 
+    /**
+     * Sends a goal setting prompt to the model
+     */
     async promptGoalSetting(
         messages: HistoryTurn[],
         lastGoals: Record<string, boolean>

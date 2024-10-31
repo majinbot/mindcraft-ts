@@ -1,20 +1,22 @@
+import {Location} from "./types";
+
 export class MemoryBank {
-    private memory: Record<string, [number, number, number]> = {};
+    private memory: Record<string, Location> = {};
 
     rememberPlace(name: string, x: number, y: number, z: number): void {
         this.memory[name] = [x, y, z];
     }
 
-    recallPlace(name: string): [number, number, number] | undefined {
+    recallPlace(name: string): Location | undefined {
         return this.memory[name];
     }
 
-    getJson(): Record<string, [number, number, number]> {
-        return this.memory;
+    getJson(): Record<string, Location> {
+        return { ...this.memory };
     }
 
-    loadJson(json: Record<string, [number, number, number]>): void {
-        this.memory = json;
+    loadJson(json: Record<string, Location>): void {
+        this.memory = { ...json };
     }
 
     getKeys(): string {

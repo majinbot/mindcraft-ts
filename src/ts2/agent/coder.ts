@@ -2,7 +2,7 @@ import { writeFile, readFile, mkdirSync } from 'fs';
 import { checkSafe } from '../utils/safety';
 import { Agent } from './index';
 import { Bot } from 'mineflayer';
-import { HistoryTurn } from './history';
+import {History} from './history';
 
 interface CodeExecutionResult {
     success: boolean;
@@ -12,16 +12,36 @@ interface CodeExecutionResult {
 }
 
 export class Coder {
+    set curActionName(value: string) {
+        this._curActionName = value;
+    }
     private readonly agent: Agent;
-    private fileCounter = 0;
+    private fileCounter: number = 0;
     private readonly filePath: string;
-    private executing = false;
-    private generating = false;
-    private codeTemplate = '';
-    private timedout = false;
-    private curActionName = '';
+    private _executing: boolean = false;
+    private _generating: boolean = false;
+    private codeTemplate: string = '';
+    private timedout: boolean = false;
+    private _curActionName: string = '';
     private resumeFunc: (() => Promise<void>) | null = null;
     private resumeName: string | null = null;
+
+    // Public getters for state
+    get isExecuting(): boolean {
+        return this._executing;
+    }
+
+    get isGenerating(): boolean {
+        return this._generating;
+    }
+
+    get curActionName(): string {
+        return this._curActionName;
+    }
+
+    setCurActionName(name: string): void {
+        this._curActionName = name.replace(/!/g, '');
+    }
 
     constructor(agent: Agent) {
         this.agent = agent;
@@ -33,6 +53,87 @@ export class Coder {
         });
 
         mkdirSync('.' + this.filePath, { recursive: true });
+    }
+
+    async generateCode(agentHistory: History): Promise<string> {
+        await this.stop();
+        this._generating = true;
+        const res = await this.generateCodeLoop(agentHistory);
+        this._generating = false;
+        if (!res.interrupted) {
+            this.agent.bot.emit('idle');
+        }
+        return res.message || '';
+    }
+
+    async execute(
+        func: () => Promise<void>,
+        timeout: number = 10
+    ): Promise<CodeExecutionResult> {
+        if (!this.codeTemplate) {
+            return {
+                success: false,
+                message: "Code template not loaded.",
+                interrupted: false,
+                timedout: false
+            };
+        }
+
+        let timeoutHandle: NodeJS.Timeout | undefined;
+
+        try {
+            await this.stop();
+            this.clear();
+
+            this._executing = true;
+            if (timeout > 0) {
+                timeoutHandle = this.startTimeout(timeout);
+            }
+
+            await func();
+
+            this._executing = false;
+            if (timeoutHandle) clearTimeout(timeoutHandle);
+
+            const output = this.formatOutput(this.agent.bot);
+            const interrupted = this.agent.bot.interrupt_code;
+            const timedout = this.timedout;
+
+            this.clear();
+            if (!interrupted && !this._generating) {
+                this.agent.bot.emit('idle');
+            }
+
+            return {
+                success: true,
+                message: output,
+                interrupted,
+                timedout
+            };
+
+        } catch (err) {
+            this._executing = false;
+            if (timeoutHandle) clearTimeout(timeoutHandle);
+            this.cancelResume();
+
+            console.error("Code execution error:", err);
+            await this.stop();
+
+            const message = `${this.formatOutput(this.agent.bot)}!!Code threw exception!! Error: ${err}`;
+            const interrupted = this.agent.bot.interrupt_code;
+
+            this.clear();
+            if (!interrupted && !this._generating) {
+                this.agent.bot.emit('idle');
+            }
+
+            return {
+                success: false,
+                message,
+                interrupted,
+                timedout: false
+            };
+        }
     }
 
     private sanitizeCode(code: string): string {
@@ -63,7 +164,7 @@ export class Coder {
 
         code = code.replaceAll(';\n', '; if(bot.interrupt_code) {log(bot, "Code interrupted.");return;}\n');
 
-        let src = this.codeTemplate.replace(
+        const src = this.codeTemplate.replace(
             '/* CODE HERE */',
             code.split('\n').map(line => `    ${line}`).join('\n')
         );
@@ -79,21 +180,12 @@ export class Coder {
         }
     }
 
-    async generateCode(agentHistory: { getHistory: () => HistoryTurn[] }): Promise<string> {
-        await this.stop();
-        this.generating = true;
-        const res = await this.generateCodeLoop(agentHistory);
-        this.generating = false;
-        if (!res.interrupted) this.agent.bot.emit('idle');
-        return res.message || '';
-    }
-
-    private async generateCodeLoop(agentHistory: { getHistory: () => HistoryTurn[] }): Promise<CodeExecutionResult> {
+    private async generateCodeLoop(agentHistory: History): Promise<CodeExecutionResult> {
         this.agent.bot.modes.pause('unstuck');
 
         const messages = [
             ...agentHistory.getHistory(),
-            { role: 'system', content: 'Code generation started. Write code in codeblock in your response:' }
+            { role: 'system' as const, content: 'Code generation started. Write code in codeblock in your response:' }
         ];
 
         let failures = 0;
@@ -151,7 +243,7 @@ export class Coder {
 
             const executionFile = await this.stageCode(code);
             if (!executionFile) {
-                agentHistory.add('system', 'Failed to stage code, something is wrong.');
+                await agentHistory.add('system', 'Failed to stage code, something is wrong.');
                 return {
                     success: false,
                     message: null,
@@ -218,85 +310,6 @@ export class Coder {
         };
     }
 
-    cancelResume(): void {
-        this.resumeFunc = null;
-        this.resumeName = null;
-    }
-
-    setCurActionName(name: string): void {
-        this.curActionName = name.replace(/!/g, '');
-    }
-
-    async execute(
-        func: () => Promise<void>,
-        timeout = 10
-    ): Promise<CodeExecutionResult> {
-        if (!this.codeTemplate) {
-            return {
-                success: false,
-                message: "Code template not loaded.",
-                interrupted: false,
-                timedout: false
-            };
-        }
-
-        let timeoutHandle: NodeJS.Timeout;
-
-        try {
-            await this.stop();
-            this.clear();
-
-            this.executing = true;
-            if (timeout > 0) {
-                timeoutHandle = this.startTimeout(timeout);
-            }
-
-            await func();
-
-            this.executing = false;
-            if (timeoutHandle) clearTimeout(timeoutHandle);
-
-            const output = this.formatOutput(this.agent.bot);
-            const interrupted = this.agent.bot.interrupt_code;
-            const timedout = this.timedout;
-
-            this.clear();
-            if (!interrupted && !this.generating) {
-                this.agent.bot.emit('idle');
-            }
-
-            return {
-                success: true,
-                message: output,
-                interrupted,
-                timedout
-            };
-
-        } catch (err) {
-            this.executing = false;
-            if (timeoutHandle) clearTimeout(timeoutHandle);
-            this.cancelResume();
-
-            console.error("Code execution error:", err);
-            await this.stop();
-
-            const message = `${this.formatOutput(this.agent.bot)}!!Code threw exception!! Error: ${err}`;
-            const interrupted = this.agent.bot.interrupt_code;
-
-            this.clear();
-            if (!interrupted && !this.generating) {
-                this.agent.bot.emit('idle');
-            }
-
-            return {
-                success: false,
-                message,
-                interrupted,
-                timedout: false
-            };
-        }
-    }
-
     private formatOutput(bot: Bot): string {
         if (bot.interrupt_code && !this.timedout) return '';
 
@@ -317,11 +330,25 @@ export class Coder {
         ].join('\n');
     }
 
+    private startTimeout(timeoutMins: number = 10): NodeJS.Timeout {
+        return <NodeJS.Timeout>setTimeout(async () => {
+            console.warn(`Code execution timed out after ${timeoutMins} minutes. Attempting force stop.`);
+            this.timedout = true;
+            await this.agent.history.add(
+                'system',
+                `Code execution timed out after ${timeoutMins} minutes. Attempting force stop.`
+            );
+            await this.stop();
+        }, timeoutMins * 60 * 1000);
+    }
+
+
+
     async stop(): Promise<void> {
-        if (!this.executing) return;
+        if (!this._executing) return;
 
         const start = Date.now();
-        while (this.executing) {
+        while (this._executing) {
             this.agent.bot.interrupt_code = true;
             await this.agent.bot.collectBlock.cancelTask();
             this.agent.bot.pathfinder.stop();
@@ -342,15 +369,8 @@ export class Coder {
         this.timedout = false;
     }
 
-    private startTimeout(timeoutMins = 10): NodeJS.Timeout {
-        return <NodeJS.Timeout>setTimeout(async () => {
-            console.warn(`Code execution timed out after ${timeoutMins} minutes. Attempting force stop.`);
-            this.timedout = true;
-            await this.agent.history.add(
-                'system',
-                `Code execution timed out after ${timeoutMins} minutes. Attempting force stop.`
-            );
-            await this.stop();
-        }, timeoutMins * 60 * 1000);
+    cancelResume(): void {
+        this.resumeFunc = null;
+        this.resumeName = null;
     }
 }

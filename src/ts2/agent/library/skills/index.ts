@@ -1,6 +1,4 @@
-import {
-    ExtendedBot,
-} from "../../../types/mc";
+import {Bot} from "mineflayer";
 
 export * from "./blocks";
 export * from "./combat";
@@ -24,7 +22,7 @@ export * from "./torch";
  * log(bot, "Debug info"); // Only logs to output
  * ```
  */
-export function log(bot: ExtendedBot, message: string, chat: boolean = false): void {
+export function log(bot: Bot, message: string, chat: boolean = false): void {
     // Ensure message ends with newline for consistent formatting
     const formattedMessage = message.endsWith('\n') ? message : `${message}\n`;
     bot.output += formattedMessage;

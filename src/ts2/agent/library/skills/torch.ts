@@ -1,6 +1,6 @@
-import {ExtendedBot} from "../../../types/mc";
 import {getPosition, shouldPlaceTorch} from "../world";
 import {placeBlock} from "./blocks";
+import {Bot} from "mineflayer";
 
 /**
  * Automatically places a torch at the bot's current position if conditions are met
@@ -13,7 +13,7 @@ import {placeBlock} from "./blocks";
  * and attempts to place it at the bot's current position. It handles errors silently
  * and returns false if anything goes wrong.
  */
-export async function autoLight(bot: ExtendedBot): Promise<boolean> {
+export async function autoLight(bot: Bot): Promise<boolean> {
     try {
         if (!shouldPlaceTorch(bot)) {
             return false;

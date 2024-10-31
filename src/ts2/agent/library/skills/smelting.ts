@@ -1,4 +1,3 @@
-import {ExtendedBot} from "../../../types/mc";
 import {getFuelSmeltOutput, getItemId, getItemName, getSmeltingFuel, isSmeltable} from "../../../utils/mcdata";
 import {Block} from "prismarine-block";
 import {goToNearestBlock} from "./navigation";
@@ -7,6 +6,7 @@ import {getRecipeId} from "./crafting";
 import {collectBlock, placeBlock} from "./blocks";
 import {log} from "./index";
 import {storeFurnaceContents} from "./items";
+import {Bot} from "mineflayer";
 
 /**
  * Configuration options for smelting operations
@@ -83,7 +83,7 @@ interface FurnaceResult {
  * ```
  */
 export async function smeltItem(
-    bot: ExtendedBot,
+    bot: Bot,
     itemName: string,
     num: number = 1,
     options: SmeltingOptions = {}
@@ -217,7 +217,7 @@ export async function smeltItem(
  * ```
  */
 export async function clearNearestFurnace(
-    bot: ExtendedBot,
+    bot: Bot,
     options: FurnaceClearOptions = {}
 ): Promise<boolean> {
     const {
@@ -299,7 +299,7 @@ export async function clearNearestFurnace(
  * @internal
  */
 async function monitorSmelting(
-    bot: ExtendedBot,
+    bot: Bot,
     furnace: any,
     options: {
         targetCount: number;
@@ -358,7 +358,7 @@ async function monitorSmelting(
  * @internal
  */
 async function handleFurnaceFuel(
-    bot: ExtendedBot,
+    bot: Bot,
     furnace: any,
     itemCount: number
 ): Promise<void> {
@@ -385,7 +385,7 @@ async function handleFurnaceFuel(
  * @internal
  */
 async function findOrPlaceFurnace(
-    bot: ExtendedBot,
+    bot: Bot,
     options: { place: boolean; range: number }
 ): Promise<Block | null> {
     let furnace = getNearestBlock(bot, 'furnace', options.range);

@@ -1,8 +1,8 @@
 import { Block } from 'prismarine-block';
 import {Vec3} from 'vec3';
-import { ExtendedBot } from "../../../types/mc";
 import { goToPosition } from './navigation';
 import {log} from "./index";
+import {Bot} from "mineflayer";
 
 /**
  * Configuration options for farming operations
@@ -94,7 +94,7 @@ const CROP_TO_SEED_MAP: Record<string, string> = {
  * ```
  */
 export async function tillAndSow(
-    bot: ExtendedBot,
+    bot: Bot,
     x: number,
     y: number,
     z: number,
@@ -262,7 +262,7 @@ function estimateGrowthTime(
  * @internal
  */
 async function monitorGrowth(
-    bot: ExtendedBot,
+    bot: Bot,
     position: Vec3,
     options: GrowthMonitorOptions = {}
 ): Promise<boolean> {
@@ -378,7 +378,7 @@ function isCropMature(block: Block): boolean {
  * ```
  */
 export async function harvestCrops(
-    bot: ExtendedBot,
+    bot: Bot,
     options: FarmingOptions & GrowthMonitorOptions = {}
 ): Promise<boolean> {
     const {

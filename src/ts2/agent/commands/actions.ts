@@ -24,7 +24,7 @@ function wrapExecution(
             } else {
                 codeReturn = await agent.coder.execute(wrappedFunction, timeoutMs);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Command execution failed:', err);
             return `Command failed: ${err.message}`;
         }
@@ -43,7 +43,7 @@ export const actionsList: Command[] = [
             'prompt': { type: 'string', description: 'Natural language prompt for code generation' }
         },
         perform: async (agent: Agent, prompt: string): Promise<string> => {
-            if (!agent.settings.allow_insecure_coding) {
+            if (!agent.settings.allow_unsafe_coding) {
                 return 'newAction not allowed! Code writing is disabled in settings.';
             }
             return await agent.coder.generateCode(agent.history);

@@ -8,7 +8,7 @@ interface ViewerOptions {
 }
 
 export function addViewer(bot: Bot, countId: number): void {
-    if (bot.settings?.show_bot_views) {
+    if (bot.settings?.showBotView) {
         mineflayerViewer(bot, {
             port: 3000 + countId,
             firstPerson: true

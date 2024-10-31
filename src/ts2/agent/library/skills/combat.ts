@@ -1,4 +1,4 @@
-import {ExtendedBot, ExtendedItem} from "../../../types/mc";
+import {ExtendedItem} from "../../../types/mc";
 import {log} from "./index";
 import {getNearbyEntities, getNearestEntityWhere} from "../world";
 import {Entity} from "prismarine-entity";
@@ -7,6 +7,7 @@ import {isHostile, RuntimeEntity} from "../../../utils/mcdata";
 import {goals, Movements} from "mineflayer-pathfinder";
 import {Vec3} from "vec3";
 import {goToPosition} from "./navigation";
+import {Bot} from "mineflayer";
 
 /**
  * Options for attacking entities
@@ -45,7 +46,7 @@ interface AvoidanceOptions {
  * await equipHighestAttack(bot); // Bot will equip its strongest weapon
  * ```
  */
-export async function equipHighestAttack(bot: ExtendedBot): Promise<void> {
+export async function equipHighestAttack(bot: Bot): Promise<void> {
     const inventory = bot.inventory.items();
 
     // First try to find primary weapons (swords and regular axes)
@@ -102,7 +103,7 @@ export async function equipHighestAttack(bot: ExtendedBot): Promise<void> {
  * ```
  */
 export async function attackNearest(
-    bot: ExtendedBot,
+    bot: Bot,
     mobType: string,
     options: AttackOptions = {}
 ): Promise<boolean> {
@@ -157,7 +158,7 @@ export async function attackNearest(
  * Handles both single attacks and sustained combat:
  * - For single attacks: Moves within range and performs one strike
  * - For sustained combat: Engages until target dies or combat is interrupted
- * - Automatically equips best weapon before attacking
+ * - Automatically equips the best weapon before attacking
  * - Collects dropped items after successful kills
  *
  * @throws {Error} If entity is invalid or unreachable
@@ -172,7 +173,7 @@ export async function attackNearest(
  * ```
  */
 export async function attackEntity(
-    bot: ExtendedBot,
+    bot: Bot,
     entity: Entity,
     options: AttackOptions = {}
 ): Promise<boolean> {
@@ -254,7 +255,7 @@ export async function attackEntity(
  * ```
  */
 export async function defendSelf(
-    bot: ExtendedBot,
+    bot: Bot,
     options: { range?: number; fleeDistance?: number } = {}
 ): Promise<boolean> {
     const {
@@ -364,7 +365,7 @@ export async function defendSelf(
  * ```
  */
 export async function moveAway(
-    bot: ExtendedBot,
+    bot: Bot,
     distance: number
 ): Promise<boolean> {
     const currentPos = bot.entity.position;
@@ -443,7 +444,7 @@ export async function moveAway(
  * ```
  */
 export async function avoidEnemies(
-    bot: ExtendedBot,
+    bot: Bot,
     options: AvoidanceOptions = {}
 ): Promise<boolean> {
     const {

@@ -1,11 +1,11 @@
 import {Vec3} from "vec3";
+import {Block} from "prismarine-block";
 import {Entity} from "prismarine-entity";
 import { goals, Movements } from 'mineflayer-pathfinder';
 
-import { ExtendedBot } from "../../../types/mc";
 import * as world from '../world';
 import {log} from "./index";
-import {Block} from "prismarine-block";
+import {Bot} from "mineflayer";
 
 /**
  * Navigation configuration options
@@ -99,7 +99,7 @@ export const MOVEMENT_MODES = [
  * ```
  */
 export async function goToPosition(
-    bot: ExtendedBot,
+    bot: Bot,
     x: number | null,
     y: number | null,
     z: number | null,
@@ -183,7 +183,7 @@ export async function goToPosition(
  * ```
  */
 export async function goToNearestBlock(
-    bot: ExtendedBot,
+    bot: Bot,
     blockType: string,
     options: NavigationOptions = {}
 ): Promise<boolean> {
@@ -249,7 +249,7 @@ export async function goToNearestBlock(
  * ```
  */
 export async function goToPlayer(
-    bot: ExtendedBot,
+    bot: Bot,
     username: string,
     options: NavigationOptions = {}
 ): Promise<boolean> {
@@ -333,7 +333,7 @@ export async function goToPlayer(
  * ```
  */
 export async function followPlayer(
-    bot: ExtendedBot,
+    bot: Bot,
     username: string,
     options: FollowOptions = {}
 ): Promise<boolean> {
@@ -434,7 +434,7 @@ export async function followPlayer(
  * ```
  */
 export async function stay(
-    bot: ExtendedBot,
+    bot: Bot,
     options: StayOptions = {}
 ): Promise<boolean> {
     const {
@@ -526,7 +526,7 @@ function isValidBed(block: Block): boolean {
  * ```
  */
 export async function goToBed(
-    bot: ExtendedBot,
+    bot: Bot,
     options: BedOptions = {}
 ): Promise<boolean> {
     const {

@@ -1,4 +1,3 @@
-import {ExtendedBot, FreeSpaceOptions} from "../../../types/mc";
 import {getInventoryCounts, getNearestBlock, getNearestFreeSpace} from "../world";
 import { Recipe as MinecraftRecipe } from "minecraft-data";
 import { Recipe as PrismarineRecipe } from "prismarine-recipe";
@@ -7,6 +6,7 @@ import {Block} from "prismarine-block";
 import {collectBlock, placeBlock} from "./blocks";
 import {log} from "./index";
 import {goToNearestBlock} from "./navigation";
+import {Bot} from "mineflayer";
 
 /**
  * Configuration options for crafting operations
@@ -28,6 +28,14 @@ export class CraftingError extends Error {
         super(message);
         this.name = 'CraftingError';
     }
+}
+
+/**
+ * Options for free space search
+ */
+export interface FreeSpaceOptions {
+    size?: number;
+    distance?: number;
 }
 
 /**
@@ -81,7 +89,7 @@ export function convertRecipe(recipe: PrismarineRecipe): MinecraftRecipe {
  * ```
  */
 export async function craftRecipe(
-    bot: ExtendedBot,
+    bot: Bot,
     itemName: string,
     num: number = 1,
     options: CraftingOptions = {}
@@ -184,7 +192,7 @@ export async function craftRecipe(
  * @internal
  */
 async function findOrPlaceCraftingTable(
-    bot: ExtendedBot,
+    bot: Bot,
     options: { place: boolean; range: number }
 ): Promise<Block | null> {
     // Look for existing table
@@ -226,7 +234,7 @@ async function findOrPlaceCraftingTable(
  * ```
  */
 export function getMissingIngredients(
-    bot: ExtendedBot,
+    bot: Bot,
     recipe: MinecraftRecipe | PrismarineRecipe
 ): Record<string, number> {
     const inventory = getInventoryCounts(bot);
@@ -261,7 +269,7 @@ export function getMissingIngredients(
  * ```
  */
 export function canCraftItem(
-    bot: ExtendedBot,
+    bot: Bot,
     itemName: string,
     options: CraftingOptions = {}
 ): boolean {

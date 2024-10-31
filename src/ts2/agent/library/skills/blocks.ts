@@ -1,6 +1,6 @@
 import {
     DIRECTION_VECTORS,
-    ExtendedBot, ORE_BLOCKS,
+    ORE_BLOCKS,
     PlacementSide,
     REPLACEABLE_BLOCKS,
     STATIONARY_PLACEMENT_BLOCKS, UNBREAKABLE_BLOCKS
@@ -13,6 +13,7 @@ import type { Entity } from 'prismarine-entity';
 import {log} from "./index";
 import {getNearestBlock, getNearestBlocks} from "../world";
 import {autoLight} from "./torch";
+import {Bot} from "mineflayer";
 
 /**
  * Collection error types
@@ -49,7 +50,7 @@ interface CollectionError extends Error {
  * ```
  */
 export async function placeBlock(
-    bot: ExtendedBot,
+    bot: Bot,
     blockType: string,
     x: number,
     y: number,
@@ -79,7 +80,7 @@ export async function placeBlock(
  * @internal
  */
 async function handleCreativePlacement(
-    bot: ExtendedBot,
+    bot: Bot,
     blockType: string,
     targetPos: Vec3,
     placeOn: PlacementSide
@@ -123,7 +124,7 @@ async function handleCreativePlacement(
  * @internal
  */
 async function handleSurvivalPlacement(
-    bot: ExtendedBot,
+    bot: Bot,
     blockType: string,
     targetPos: Vec3,
     placeOn: PlacementSide
@@ -253,7 +254,7 @@ function handleButtonLeverPlacement(
  * @internal
  */
 async function handleBlockRemoval(
-    bot: ExtendedBot,
+    bot: Bot,
     targetBlock: Block,
     targetPos: Vec3
 ): Promise<boolean> {
@@ -279,7 +280,7 @@ async function handleBlockRemoval(
  * @internal
  */
 async function findPlacementSurface(
-    bot: ExtendedBot,
+    bot: Bot,
     targetPos: Vec3,
     placeOn: PlacementSide
 ): Promise<{ buildOffBlock: Block | null; faceVec: Vec3 | null }> {
@@ -334,7 +335,7 @@ async function findPlacementSurface(
  * @internal
  */
 async function positionForPlacement(
-    bot: ExtendedBot,
+    bot: Bot,
     targetBlock: Block,
     blockType: string,
     targetPos: Vec3
@@ -415,7 +416,7 @@ function distanceBetween(pos1: Vec3, pos2: Vec3): number {
  * ```
  */
 export async function breakBlockAt(
-    bot: ExtendedBot,
+    bot: Bot,
     x: number,
     y: number,
     z: number
@@ -456,7 +457,7 @@ export async function breakBlockAt(
  * @internal
  */
 async function handleCreativeBreak(
-    bot: ExtendedBot,
+    bot: Bot,
     pos: Vec3
 ): Promise<boolean> {
     const command = `/setblock ${Math.floor(pos.x)} ${Math.floor(pos.y)} ${Math.floor(pos.z)} air`;
@@ -470,7 +471,7 @@ async function handleCreativeBreak(
  * @internal
  */
 async function handleSurvivalBreak(
-    bot: ExtendedBot,
+    bot: Bot,
     block: Block
 ): Promise<boolean> {
     // Move within range if needed
@@ -505,7 +506,7 @@ async function handleSurvivalBreak(
  * Moves the bot within range of a block
  * @internal
  */
-async function moveToBlock(bot: ExtendedBot, block: Block): Promise<void> {
+async function moveToBlock(bot: Bot, block: Block): Promise<void> {
     const movements = new Movements(bot);
 
     // Configure movement restrictions for safe navigation
@@ -529,7 +530,7 @@ async function moveToBlock(bot: ExtendedBot, block: Block): Promise<void> {
  * Equips the proper tool for breaking a block
  * @internal
  */
-async function equipProperTool(bot: ExtendedBot, block: Block): Promise<boolean> {
+async function equipProperTool(bot: Bot, block: Block): Promise<boolean> {
     await bot.tool.equipForBlock(block);
     const itemId = bot.heldItem?.type ?? null;
 
@@ -587,7 +588,7 @@ function getValidBlockTypes(blockType: string): string[] {
  * @throws {Error} If num is less than 1
  */
 export async function collectBlock(
-    bot: ExtendedBot,
+    bot: Bot,
     blockType: string,
     num: number = 1,
     exclude: Vec3[] | null = null
@@ -639,7 +640,7 @@ function toSafeBlock(block: Block): SafeBlock {
 }
 
 async function collectSingleBlock(
-    bot: ExtendedBot,
+    bot: Bot,
     blockTypes: string[],
     originalType: string,
     exclude: Vec3[] | null
@@ -687,7 +688,7 @@ async function collectSingleBlock(
  * @internal
  */
 async function equipToolForBlock(
-    bot: ExtendedBot,
+    bot: Bot,
     block: Block,
     blockType: string
 ): Promise<void> {
@@ -720,11 +721,11 @@ function isCollectionError(error: unknown): error is CollectionError {
  * await pickupNearbyItems(bot);
  * ```
  */
-export async function pickupNearbyItems(bot: ExtendedBot): Promise<boolean> {
+export async function pickupNearbyItems(bot: Bot): Promise<boolean> {
     const PICKUP_DISTANCE = 8;
     let pickedUp = 0;
 
-    const getNearestItem = (bot: ExtendedBot) =>
+    const getNearestItem = (bot: Bot) =>
         bot.nearestEntity((entity): entity is Entity =>
             entity !== null &&
             entity.name === 'item' &&
@@ -793,7 +794,7 @@ export async function pickupNearbyItems(bot: ExtendedBot): Promise<boolean> {
  * @throws {Error} If block activation fails
  */
 export async function activateNearestBlock(
-    bot: ExtendedBot,
+    bot: Bot,
     type: string
 ): Promise<boolean> {
     // Find nearest block

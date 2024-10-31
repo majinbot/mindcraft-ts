@@ -12,13 +12,6 @@ import type { Vec3 } from 'vec3';
 import { Movements, goals } from 'mineflayer-pathfinder';
 import {getAllBiomes, getAllBlockIds, getBlockId} from "../../utils/mcdata";
 
-// Extend Bot type to include custom properties
-interface ExtendedBot extends Bot {
-    modes?: {
-        isOn(mode: string): boolean;
-    };
-}
-
 /**
  * Configuration for free space search
  */
@@ -328,7 +321,7 @@ export async function isClearPath(bot: Bot, target: Entity): Promise<boolean> {
  * @param bot - The bot instance to check
  * @returns True if torch placement is recommended
  */
-export function shouldPlaceTorch(bot: ExtendedBot): boolean {
+export function shouldPlaceTorch(bot: Bot): boolean {
     if (!bot.modes?.isOn('torch_placing')) return false;
 
     const pos = getPosition(bot);

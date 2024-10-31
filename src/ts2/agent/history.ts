@@ -1,20 +1,6 @@
 import { writeFileSync, readFileSync, mkdirSync } from 'fs';
 import { Agent } from './index';
-
-export interface HistoryTurn {
-    role: 'system' | 'user' | 'assistant';
-    content: string;
-}
-
-interface SaveData {
-    name: string;
-    memory: string;
-    turns: HistoryTurn[];
-    modes?: Record<string, any>;
-    memory_bank?: Record<string, any>;
-    npc?: Record<string, any>;
-    self_prompt?: string;
-}
+import {HistoryTurn, SaveData} from "./types";
 
 export class History {
     private readonly agent: Agent;
@@ -22,9 +8,9 @@ export class History {
     private readonly memory_fp: string;
     private full_history_fp?: string;
     private turns: HistoryTurn[] = [];
-    private memory = '';
+    memory: string = '';
     private readonly max_messages: number;
-    private readonly summary_chunk_size = 5;
+    private readonly summary_chunk_size: number = 5;
 
     constructor(agent: Agent) {
         this.agent = agent;
@@ -63,17 +49,19 @@ export class History {
 
         try {
             const data = readFileSync(this.full_history_fp, 'utf8');
-            const fullHistory = JSON.parse(data);
+            const fullHistory = JSON.parse(data) as HistoryTurn[];
             fullHistory.push(...toStore);
             writeFileSync(this.full_history_fp, JSON.stringify(fullHistory, null, 4), 'utf8');
         } catch (err) {
-            console.error(`Error reading ${this.name}'s full history:`,
-                err instanceof Error ? err.message : err);
+            console.error(
+                `Error reading ${this.name}'s full history:`,
+                err instanceof Error ? err.message : err
+            );
         }
     }
 
     async add(name: string, content: string): Promise<void> {
-        const role = name === 'system' ? 'system' :
+        const role: HistoryTurn['role'] = name === 'system' ? 'system' :
             name === this.name ? 'assistant' : 'user';
 
         if (role === 'user') {
@@ -85,8 +73,12 @@ export class History {
         if (this.turns.length >= this.max_messages) {
             const chunk = this.turns.splice(0, this.summary_chunk_size);
 
+            // Keep chaining assistant messages to the chunk
             while (this.turns.length > 0 && this.turns[0].role === 'assistant') {
-                chunk.push(this.turns.shift()!);
+                const assistantTurn = this.turns.shift();
+                if (assistantTurn) {
+                    chunk.push(assistantTurn);
+                }
             }
 
             await this.summarizeMemories(chunk);
@@ -101,15 +93,12 @@ export class History {
             turns: this.turns
         };
 
-        //if (this.agent.npc.data) {
-        //    data.npc = this.agent.npc.data.toObject();
-        //}
-
         const modes = this.agent.bot.modes.getJson();
         if (modes) {
             data.modes = modes;
         }
 
+        // Get memory bank data with proper typing
         const memoryBank = this.agent.memory_bank.getJson();
         if (memoryBank) {
             data.memory_bank = memoryBank;
@@ -125,29 +114,50 @@ export class History {
     load(): SaveData | null {
         try {
             const data = readFileSync(this.memory_fp, 'utf8');
-            const obj: SaveData = JSON.parse(data);
+            const obj = JSON.parse(data) as SaveData;
 
             this.memory = obj.memory;
             this.turns = obj.turns;
 
-            // Skip NPCData for now
             if (obj.modes) {
                 this.agent.bot.modes.loadJson(obj.modes);
             }
-            if (obj.memory_bank) {
+
+            // Validate memory bank data before loading
+            if (obj.memory_bank && this.isValidMemoryBank(obj.memory_bank)) {
                 this.agent.memory_bank.loadJson(obj.memory_bank);
             }
 
             return obj;
         } catch (err) {
-            console.error(`Error reading ${this.name}'s memory:`,
-                err instanceof Error ? err.message : err);
+            console.error(
+                `Error reading ${this.name}'s memory:`,
+                err instanceof Error ? err.message : err
+            );
             return null;
         }
+    }
+
+    /**
+     * Type guard to validate memory bank data
+     */
+    private isValidMemoryBank(data: Record<string, unknown>): data is Record<string, Location> {
+        return Object.values(data).every(value => {
+            if (!Array.isArray(value)) return false;
+            if (value.length !== 3) return false;
+            return value.every(n => typeof n === 'number');
+        });
     }
 
     clear(): void {
         this.turns = [];
         this.memory = '';
+    }
+
+    /**
+     * Get the current memory string
+     */
+    get currentMemory(): string {
+        return this.memory;
     }
 }
