@@ -69,7 +69,7 @@ function main(): void {
             args.loadMemory,
             args.initMessage,
             args.countId
-        )
+        ).then()
     } catch (error) {
         console.error('Error initializing agent:', error);
         process.exit(1);

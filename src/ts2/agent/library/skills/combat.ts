@@ -1,4 +1,4 @@
-import {ExtendedItem} from "../../../types/mc";
+import {ExtendedItem} from "./types";
 import {log} from "./index";
 import {getNearbyEntities, getNearestEntityWhere} from "../world";
 import {Entity} from "prismarine-entity";

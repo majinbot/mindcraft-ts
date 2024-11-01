@@ -8,7 +8,8 @@ interface ViewerOptions {
 }
 
 export function addViewer(bot: Bot, countId: number): void {
-    if (bot.settings?.showBotView) {
+    // TODO: fix config/settings
+    if (bot.settings?.colorsEnabled) {
         mineflayerViewer(bot, {
             port: 3000 + countId,
             firstPerson: true

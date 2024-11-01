@@ -3,17 +3,16 @@
  * @description Handles spawning and monitoring of agent processes
  */
 
-import { spawn, ChildProcess } from 'child_process';
-import { join } from 'path';
-import { AgentStartOptions, ProcessContext } from '../types/proc';
+import {join} from 'path';
+import {AgentStartOptions, ProcessContext} from '../types/proc';
 
 /**
  * Manages agent processes including spawning, monitoring, and restarting
  */
 export class AgentProcess {
     private static runningCount = 0;
-    private static readonly MIN_RESTART_INTERVAL = 10000; // 10 seconds in ms
-    private static readonly INIT_SCRIPT = join('src', 'process', 'init-agent.js');
+    private static readonly MIN_RESTART_INTERVAL = 10_000; // 10 seconds in ms
+    private static readonly INIT_SCRIPT = join('src', 'ts2', 'proc', 'initAgent.ts');
 
     /** Name of the agent process */
     public name: string;
@@ -41,6 +40,7 @@ export class AgentProcess {
 
         // Build process arguments
         const args: string[] = [
+            'run',
             AgentProcess.INIT_SCRIPT,
             this.name,
             '-p', profile,
@@ -55,56 +55,47 @@ export class AgentProcess {
             args.push('-m', initMessage);
         }
 
-        // Spawn process with typed options
-        const agentProcess = this.spawnProcess(args);
+        const proc = this.spawnProcess(args, profile, countId);
         AgentProcess.runningCount++;
-
-        let lastRestart = Date.now();
-        this.setupProcessHandlers(agentProcess, {
-            profile,
-            lastRestart,
-            countId,
-        });
     }
 
     /**
-     * Spawns a new Node.js process with the specified arguments
+     * Spawns a new Bun process with the specified arguments
      *
      * @param args - Process arguments
-     * @returns Spawned child process
+     * @param profile - Profile path for context
+     * @param countId - Process count identifier for context
      * @private
      */
-    private spawnProcess(args: string[]): ChildProcess {
-        return spawn('node', args, {
-            stdio: 'inherit',
-            //stderr: 'inherit',
-        });
-    }
+    private spawnProcess(args: string[], profile: string, countId: number) {
+        const lastRestart = Date.now();
 
-    /**
-     * Sets up event handlers for the agent process
-     *
-     * @param process - The spawned child process
-     * @param context - Context information for error handling
-     * @private
-     */
-    private setupProcessHandlers(
-        process: ChildProcess,
-        context: ProcessContext
-    ): void {
-        process.on('exit', (code: number | null, signal: string | null) => {
-            console.log(`Agent process exited with code ${code} and signal ${signal}`);
+        return Bun.spawn(['bun', ...args], {
+            stdio: ['inherit', 'inherit', 'inherit'],
+            env: process.env,
+            onExit: (proc, exitCode, signalCode, error) => {
+                if (error) {
+                    console.error('Process error:', error);
+                    this.handleProcessError(error, {
+                        profile,
+                        lastRestart,
+                        countId
+                    });
+                    return;
+                }
 
-            if (code !== 0) {
-                this.handleNonZeroExit(context);
-            } else {
-                this.handleCleanExit();
-            }
-        });
+                console.log(`Agent process exited with code ${exitCode} and signal ${signalCode}`);
 
-        process.on('error', (err: Error) => {
-            console.error('Failed to start agent process:', err);
-            this.handleProcessError(err, context);
+                if (exitCode !== 0) {
+                    this.handleNonZeroExit({
+                        profile,
+                        lastRestart,
+                        countId
+                    });
+                } else {
+                    this.handleCleanExit();
+                }
+            },
         });
     }
 
@@ -145,7 +136,7 @@ export class AgentProcess {
     /**
      * Handles process spawn errors
      *
-     * @param error - The error that occurred
+     * @param error - Error
      * @param context - Process context
      * @private
      */

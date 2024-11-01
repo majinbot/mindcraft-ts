@@ -4,7 +4,7 @@ import {
     PlacementSide,
     REPLACEABLE_BLOCKS,
     STATIONARY_PLACEMENT_BLOCKS, UNBREAKABLE_BLOCKS
-} from "../../../types/mc";
+} from "./types";
 import {getBlockId, makeItem} from "../../../utils/mcdata";
 import {Vec3} from "vec3";
 import {Block} from "prismarine-block";

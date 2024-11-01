@@ -23,7 +23,7 @@ interface NPCGoal {
  */
 export class Prompter {
     private readonly agent: Agent;
-    private readonly profile: Profile;
+    readonly profile: Profile;
     private convoExamples: Examples | null = null;
     private codingExamples: Examples | null = null;
     private readonly chatModel: ChatModel;

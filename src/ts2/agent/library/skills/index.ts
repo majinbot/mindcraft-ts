@@ -8,6 +8,7 @@ export * from "./items";
 export * from "./navigation";
 export * from "./smelting";
 export * from "./torch";
+export * from "./types"
 
 /**
  * Logs a message to the bot's output and optionally sends it to game chat

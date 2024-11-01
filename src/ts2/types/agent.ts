@@ -1,4 +1,4 @@
-import {Bot as MineflayerBot} from 'mineflayer';
+import {Bot as MineflayerBot, StorageEvents, Time} from 'mineflayer';
 import { Vec3 } from 'vec3';
 import { Block } from 'prismarine-block';
 import { Window } from 'prismarine-windows';
@@ -7,6 +7,7 @@ import {EatUtil} from "mineflayer-auto-eat/dist/new";
 import {Entity} from "prismarine-entity";
 import {Pathfinder} from 'mineflayer-pathfinder';
 import {Profile} from "../agent/types";
+import {Tool} from "mineflayer-tool/lib/Tool";
 
 export interface AgentSettings {
     max_commands: number;
@@ -46,6 +47,9 @@ declare module 'mineflayer' {
 
         // Inventory and item handling enhancements
         inventory: Window<StorageEvents>,
+
+        // Add tool plugin support
+        tool: Tool;
 
         // Location and movement
         entity: Entity

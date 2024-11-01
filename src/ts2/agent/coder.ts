@@ -342,8 +342,6 @@ export class Coder {
         }, timeoutMins * 60 * 1000);
     }
 
-
-
     async stop(): Promise<void> {
         if (!this._executing) return;
 

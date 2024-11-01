@@ -1,23 +1,18 @@
-import { Bot } from 'mineflayer';
-import { History } from './history';
-import { Coder } from './coder';
-import { Prompter } from './prompter';
-import { initModes } from './modes';
-import { initBot } from '../utils/mcdata';
-import {
-    containsCommand,
-    commandExists,
-    executeCommand,
-    truncCommandMessage,
-    isAction
-} from './commands';
-import { MemoryBank } from './memory_bank';
-import { SelfPrompter } from './self_prompter';
-import { handleTranslation, handleEnglishTranslation } from '../utils/translation';
-import { addViewer } from './viewer';
+import {Bot} from 'mineflayer';
+import {History} from './history';
+import {Coder} from './coder';
+import {Prompter} from './prompter';
+import {initModes} from './modes';
+import {initBot} from '../utils/mcdata';
+import {commandExists, containsCommand, executeCommand, isAction, truncCommandMessage} from './commands';
+import {MemoryBank} from './memory_bank';
+import {SelfPrompter} from './self_prompter';
+import {handleEnglishTranslation, handleTranslation} from '../utils/translation';
+import {addViewer} from './viewer';
 import {AgentSettings} from "../types/agent";
 import {IEatUtilOpts} from "mineflayer-auto-eat/dist/new";
 import {SaveData} from "./types";
+import config from "../config";
 
 // Add missing events to BotEvents
 declare module 'mineflayer' {
@@ -42,6 +37,8 @@ export class Agent {
     public settings!: AgentSettings;
     private shut_up: boolean = false;
 
+    private running: boolean = false;
+
     private static readonly IGNORE_MESSAGES: readonly string[] = [
         "Set own game mode to",
         "Set the time to",
@@ -58,13 +55,24 @@ export class Agent {
         countId: number = 0
     ): Promise<void> {
         this.prompter = new Prompter(this, profile_fp);
+        // Initialize settings by combining config and profile
+        this.settings = {
+            max_commands: config.max_commands,
+            verbose_commands: config.verbose_commands,
+            narrate_behavior: config.narrate_behavior,
+            max_messages: config.max_messages,
+            code_timeout_mins: config.code_timeout_mins,
+            allow_unsafe_coding: config.allow_insecure_coding,
+            profiles: [this.prompter.profile], // Add current profile
+        };
         this.name = this.prompter.getName();
         this.history = new History(this);
         this.coder = new Coder(this);
         this.memory_bank = new MemoryBank();
         this.self_prompter = new SelfPrompter(this);
 
-        await this.prompter.initExamples();
+        // TODO: fix await this.prompter.initExamples();
+
         console.log('Logging in...');
         this.bot = initBot(this.name);
         initModes(this);
@@ -110,23 +118,30 @@ export class Agent {
     }
 
     private initAutoEat(): void {
-        const autoEatOpts: Partial<IEatUtilOpts> = {
-            priority: 'foodPoints',
-            minHunger: 14,
-            bannedFood: [
-                "rotten_flesh",
-                "spider_eye",
-                "poisonous_potato",
-                "pufferfish",
-                "chicken"
-            ]
-        };
-
         // Apply options to the autoEat instance
-        this.bot.autoEat.setOpts(autoEatOpts);
-
+        this.bot.autoEat.options = {
+            bannedFood: [],
+            checkOnItemPickup: false,
+            eatingTimeout: 0,
+            equipOldItem: false,
+            healthThreshold: 0,
+            ignoreInventoryCheck: false,
+            offhand: false,
+            priority: "foodPoints",
+            startAt: 0
+            //priority: 'foodPoints',
+            //minHunger: 14,
+            // bannedFood: [
+            //     "rotten_flesh",
+            //     "spider_eye",
+            //     "poisonous_potato",
+            //     "pufferfish",
+            //     "chicken"
+            // ]
+        };
+        this.bot.autoEat.enable()
         // Enable auto eating
-        this.bot.autoEat.enableAuto();
+        //this.bot.autoEat.enableAuto();
     }
 
     async cleanChat(message: string, translateUpTo: number = -1): Promise<void> {
@@ -341,25 +356,6 @@ export class Agent {
         });
     }
 
-    private startUpdateLoop(): void {
-        const INTERVAL = 300;
-        let last = Date.now();
-
-        setTimeout(async () => {
-            while (true) {
-                const start = Date.now();
-                await this.update(start - last);
-
-                const remaining = INTERVAL - (Date.now() - start);
-                if (remaining > 0) {
-                    await new Promise(resolve => setTimeout(resolve, remaining));
-                }
-
-                last = start;
-            }
-        }, INTERVAL);
-    }
-
     async update(delta: number): Promise<void> {
         await this.bot.modes.update();
         this.self_prompter.update(delta);
@@ -376,7 +372,49 @@ export class Agent {
         return this.shut_up;
     }
 
-    cleanKill(msg: string = 'Killing agent process...'): void {
+    private startUpdateLoop(): void {
+        const INTERVAL = 300;
+        let last = Date.now();
+        this.running = true;
+
+        // Store the interval handle so we can clear it during cleanup
+        const updateLoop = async () => {
+            try {
+                while (this.running) {
+                    const start = Date.now();
+                    await this.update(start - last);
+
+                    const remaining = INTERVAL - (Date.now() - start);
+                    if (remaining > 0) {
+                        await new Promise(resolve => setTimeout(resolve, remaining));
+                    }
+
+                    last = start;
+
+                    // Check if bot was disconnected or process is exiting
+                    if (!this.bot.entity || process.exitCode !== undefined) {
+                        this.running = false;
+                        break;
+                    }
+                }
+            } catch (err) {
+                console.error('Error in update loop:', err);
+                this.cleanKill('Error in update loop, shutting down...');
+            }
+        };
+
+        // Start the update loop
+        void updateLoop();
+    }
+
+    // Method to cleanly stop the update loop
+    public stopUpdateLoop(): void {
+       this.running = false;
+    }
+
+    // Stop the loop and save up
+    public cleanKill(msg: string = 'Killing agent process...'): void {
+        this.stopUpdateLoop();
         void this.history.add('system', msg);
         this.bot.chat('Goodbye world.');
         this.history.save();

@@ -7,13 +7,15 @@
 import minecraftData from 'minecraft-data';
 import config from '../config';
 import { createBot, Bot } from 'mineflayer';
-import { Item as PrismarineItem } from 'prismarine-item';
 import { pathfinder } from 'mineflayer-pathfinder';
 import { plugin as pvp } from 'mineflayer-pvp';
 import { plugin as collectblock } from 'mineflayer-collectblock';
-import { loader as autoEat } from 'mineflayer-auto-eat';
+import { plugin as autoEat } from 'mineflayer-auto-eat';
+import { plugin as toolPlugin } from 'mineflayer-tool';
 import armorManager from 'mineflayer-armor-manager';
 import MinecraftData from "minecraft-data";
+
+import prismarineItem from 'prismarine-item';
 
 /**
  * Initialize Minecraft data with version-specific information
@@ -21,6 +23,12 @@ import MinecraftData from "minecraft-data";
  */
 const MC_VERSION = config.minecraft_version;
 const mcdata = minecraftData(MC_VERSION);
+
+// Get the Item constructor from prismarine-item
+const Item = prismarineItem(MC_VERSION);
+// Type definition for PrismarineItem instances
+type PrismarineItem = InstanceType<ReturnType<typeof prismarineItem>>;
+
 
 /**
  * Extends MinecraftData.Entity with runtime properties
@@ -175,11 +183,18 @@ export function initBot(username: string): Bot {
         port: config.port,
         auth: config.auth,
         version: MC_VERSION,
+        //
+        skipValidation: true,
+        hideErrors: false
     });
 
-    // Load all required plugins in a single pass
-    [pathfinder, pvp, collectblock, autoEat, armorManager]
-        .forEach(plugin => bot.loadPlugin(plugin));
+    // Load plugins correctly
+    bot.loadPlugin(pathfinder);
+    bot.loadPlugin(pvp);
+    bot.loadPlugin(collectblock);
+    bot.loadPlugin(autoEat);
+    bot.loadPlugin(armorManager);
+    bot.loadPlugin(toolPlugin);
 
     return bot;
 }
@@ -403,7 +418,7 @@ export function getBlockTool(blockName: BlockName): ItemName | null {
 export function makeItem(name: ItemName, amount: number = 1): PrismarineItem {
     const itemId = getItemId(name);
     if (!itemId) throw new Error(`Invalid item name: ${name}`);
-    return new PrismarineItem(itemId, amount);
+    return new Item(itemId, amount);
 }
 
 /**

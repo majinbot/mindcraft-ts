@@ -5,10 +5,10 @@ import {MindcraftConfig} from "./types/config";
  */
 const config: MindcraftConfig = {
     minecraft_version: "1.20.4",
-    host: "127.0.0.1",
-    port: 55916,
+    host: "localhost",
+    port: 25565,
     auth: "offline",
-    profiles: ["./andy.json"],
+    profiles: ["./prusa.json"],
     load_memory: false,
     init_message: "Say hello world and your name",
     language: "en",
