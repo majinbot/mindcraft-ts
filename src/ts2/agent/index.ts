@@ -10,7 +10,7 @@ import {SelfPrompter} from './self_prompter';
 import {handleEnglishTranslation, handleTranslation} from '../utils/translation';
 import {addViewer} from './viewer';
 import {AgentSettings} from "../types/agent";
-import {IEatUtilOpts} from "mineflayer-auto-eat/dist/new";
+// import {IEatUtilOpts} from "mineflayer-auto-eat/dist/new";
 import {SaveData} from "./types";
 import config from "../config";
 
